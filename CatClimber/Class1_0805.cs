@@ -29,7 +29,7 @@ namespace CatClimber
                 if (addConnections)
                 {
 
-                    gridManager.AddRandomConnections();
+                    gridManager.UpdateConnection();
                     // 这里可以添加适当的逻辑来生成 0 和 1 的随机点阵，并调用 gridManager.AddConnection() 来添加连接。
                     // 假设我们这里简单地随机生成一个点阵，然后添加随机连接。
                     //        Random random = new Random();
@@ -51,38 +51,38 @@ namespace CatClimber
 
 
                 points = new List<Point3d>();
-                lines = new List<Line>();
+                lines = gridManager.Lines;
 
 
-                // 生成点和线
-                for (int x = 0; x < sizeX; x++)
-                {
-                    for (int y = 0; y < sizeY; y++)
-                    {
-                        for (int z = 0; z < sizeZ; z++)
-                        {
-                            points.Add(new Point3d(x, y, z));
+                //// 生成点和线
+                //for (int x = 0; x < sizeX; x++)
+                //{
+                //    for (int y = 0; y < sizeY; y++)
+                //    {
+                //        for (int z = 0; z < sizeZ; z++)
+                //        {
+                //            points.Add(new Point3d(x, y, z));
 
-                            int connectionsX = gridManager.CalculateHorizontalConnections(x, y, z);
-                            int connectionsY = gridManager.CalculateHorizontalConnectionsFB(x, y, z);
-                            int connectionsZ = gridManager.CalculateVerticalConnections(x, y, z);
-                            // 根据点与点之间的连接关系生成线
-                            if (connectionsX > 0)
-                            {
-                                lines.Add(new Line(new Point3d(x, y, z), new Point3d(x + 1, y, z)));
-                            }
-                            if (connectionsY > 0)
-                            {
-                                lines.Add(new Line(new Point3d(x, y, z), new Point3d(x, y+1, z)));
-                            }
-                            if (connectionsZ > 0)
-                            {
-                                lines.Add(new Line(new Point3d(x, y, z), new Point3d(x, y, z + 1)));
-                            }
-                            // 在这里添加其他方向的线连接规则，根据实际情况调整。
-                        }
-                    }
-                }
+                //            int connectionsX = gridManager.CalculateHorizontalConnections(x, y, z);
+                //            int connectionsY = gridManager.CalculateHorizontalConnectionsFB(x, y, z);
+                //            int connectionsZ = gridManager.CalculateVerticalConnections(x, y, z);
+                //            // 根据点与点之间的连接关系生成线
+                //            if (connectionsX > 0)
+                //            {
+                //                lines.Add(new Line(new Point3d(x, y, z), new Point3d(x + 1, y, z)));
+                //            }
+                //            if (connectionsY > 0)
+                //            {
+                //                lines.Add(new Line(new Point3d(x, y, z), new Point3d(x, y+1, z)));
+                //            }
+                //            if (connectionsZ > 0)
+                //            {
+                //                lines.Add(new Line(new Point3d(x, y, z), new Point3d(x, y, z + 1)));
+                //            }
+                //            // 在这里添加其他方向的线连接规则，根据实际情况调整。
+                //        }
+                //    }
+                //}
 
             }
             A = points;
@@ -103,7 +103,8 @@ namespace CatClimber
 
             private Random random;
 
-            private List<Line> lines;
+            public List<Point3d> Points;
+            public List<Line> Lines;
 
             public PointGridManager(int sizeX, int sizeY, int sizeZ)
             {
@@ -114,7 +115,15 @@ namespace CatClimber
 
                 random = new Random();
 
-                lines = new List<Line>();
+                Points = new List<Point3d>();
+                Lines = new List<Line>();
+            }
+
+
+            public void UpdateConnection()
+            {
+                Lines.Clear();
+                AddRandomConnections();
             }
 
             public void ConnectPointsBasedOnAdjacencyMatrix()
@@ -175,19 +184,32 @@ namespace CatClimber
                 List<Point3d> validNeighbors = new List<Point3d>();
 
                 if (IsValidNeighbor(x + 1, y, z))
-                    validNeighbors.Add(new Point3d(x + 1, y, z));
+                    validNeighbors.Add(FindPoint(x + 1, y, z));
                 if (IsValidNeighbor(x - 1, y, z))
-                    validNeighbors.Add(new Point3d(x - 1, y, z));
+                    validNeighbors.Add(FindPoint(x - 1, y, z));
                 if (IsValidNeighbor(x, y + 1, z))
-                    validNeighbors.Add(new Point3d(x, y + 1, z));
+                    validNeighbors.Add(FindPoint(x, y + 1, z));
                 if (IsValidNeighbor(x, y - 1, z))
-                    validNeighbors.Add(new Point3d(x, y - 1, z));
+                    validNeighbors.Add(FindPoint(x, y - 1, z));
                 if (IsValidNeighbor(x, y, z + 1))
-                    validNeighbors.Add(new Point3d(x, y, z + 1));
+                    validNeighbors.Add(FindPoint(x, y, z + 1));
                 if (IsValidNeighbor(x, y, z - 1))
-                    validNeighbors.Add(new Point3d(x, y, z - 1));
+                    validNeighbors.Add(FindPoint(x, y, z - 1));
 
                 return validNeighbors;
+            }
+
+            private Point3d FindPoint(int x, int y, int z)
+            {
+                foreach (Point3d point in Points)
+                {
+                    if (point.Equals(new Point3d(x,y,z)))
+                    {
+                        return point; // 返回匹配的点
+                    }
+                }
+
+                return Point3d.Unset;
             }
 
             // 判断邻居点是否是有效的连接点
@@ -196,11 +218,14 @@ namespace CatClimber
                 if (x < 0 || x >= gridSizeX || y < 0 || y >= gridSizeY || z < 0 || z >= gridSizeZ)
                     return false;
 
+
+                if(adjacencyMatrix[x, y, z] == 1)
+                    return true;    
                 // 在这里添加其他连接规则的判断逻辑
                 // 例如：满足某些条件才能连线
 
                 // 这里我们假设所有邻居都是有效的连接点
-                return true;
+                return false;
             }
 
             // 添加连接关系
@@ -210,11 +235,34 @@ namespace CatClimber
                 int point2Y = (int)Math.Round(neighborY);
                 int point2Z = (int)Math.Round(neighborZ);
 
+                if (adjacencyMatrix[point1X, point1Y, point1Z] == 0 || adjacencyMatrix[point2X, point2Y, point2Z] == 0)
+                {
+                    RemoveConnection(point1X, point1Y, point1Z, point2X, point2Y, point2Z); // 取消连接
+                    return;
+                }
+               
                 adjacencyMatrix[point1X, point1Y, point1Z] = 1;
                 adjacencyMatrix[point2X, point2Y, point2Z] = 1;
-                
 
+                Point3d a = new Point3d(point1X, point1Y, point1Z);
+                Point3d b = new Point3d(point1X, point1Y, point1Z);
+
+
+                Lines.Add(new Line(FindPoint(point1X, point1Y, point1Z), FindPoint(point2X, point2Y, point2Z)));
+                
             }
+
+            // 删除连接关系
+            public void RemoveConnection(int point1X, int point1Y, int point1Z, double neighborX, double neighborY, double neighborZ)
+            {
+                int point2X = (int)Math.Round(neighborX);
+                int point2Y = (int)Math.Round(neighborY);
+                int point2Z = (int)Math.Round(neighborZ);
+
+                adjacencyMatrix[point1X, point1Y, point1Z] = 0;
+                adjacencyMatrix[point2X, point2Y, point2Z] = 0;
+            }
+
 
             // 计算水平方向连线数量
             public int CalculateHorizontalConnections(int pointX, int pointY, int pointZ)
